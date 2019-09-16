@@ -54,6 +54,7 @@ keyRet NWindow::injectKey (int key)
 void NWindow::draw ()
 {
 	werase (window);
+	box (window, 0, 0);
 	if (haveBox ())
 	{
 		if (isActive ())
