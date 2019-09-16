@@ -422,8 +422,8 @@ int AzCam3::callArg (const char *cmd)
 int AzCam3::setCamera (const char *name, const char *value)
 {
 	size_t len = strlen (name) + strlen (value);
-	char buf[8 + len];
-	snprintf (buf, 8 + len, "set %s %s\r\n", name, value);
+	char buf[12 + len];
+	snprintf (buf, 12 + len, "set_par %s %s\r\n", name, value);
 	
 	logStream (MESSAGE_INFO) << "sending " <<  buf << sendLog;
 	return callArg (buf);
@@ -432,8 +432,8 @@ int AzCam3::setCamera (const char *name, const char *value)
 int AzCam3::setCamera (const char *name, int value)
 {
 	size_t len = strlen (name) + 20;
-	char buf[8 + len];
-	snprintf (buf, 8 + len, "set %s %d\r\n", name, value);
+	char buf[12 + len];
+	snprintf (buf, 12 + len, "set_par %s %d\r\n", name, value);
 	return callArg (buf);
 }
 
