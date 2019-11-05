@@ -149,6 +149,7 @@ class AzCam3:public rts2camd::Camera
 		rts2core::ValueFloat *parShiftExposureTime;
 		rts2core::ValueString *obsID;
 		rts2core::ValueString *groupID;
+		rts2core::ValueString *objName;
 
 		char rbuf[200];
 
@@ -157,6 +158,8 @@ class AzCam3:public rts2camd::Camera
 		int callCommand (const char *cmd, double p1);
 		int callCommand (const char *cmd, const char *p1);
 		int callCommand (const char *cmd, double p1, const char *p2, const char *p3);
+
+		/*Some commands do not allow the rts2. prefix.*/
 		int callCommandNoRts2(const char *);
 		int callExposure (const char *cmd, double p1, const char *p2);
 		int callCommand (const char *cmd, int p1, int p2, int p3, int p4, int p5, int p6);
@@ -211,6 +214,7 @@ AzCam3::AzCam3 (int argc, char **argv): Camera (argc, argv)
 	createValue (parShiftExposureTime, "SHIFT_EX", "Time in seconds of each exposure during shift focus. ", false, RTS2_VALUE_WRITABLE);
 	createValue (obsID, "ObservationID", "Observation id for ARTN categorization ", false, RTS2_VALUE_WRITABLE);
 	createValue (groupID, "GroupID", "Group id for ARTN categorization ", false, RTS2_VALUE_WRITABLE);
+	createValue (objName, "objectName", "Like Object but without ORP stuff", false, RTS2_VALUE_WRITABLE);
 
 
 	//handy defaults
@@ -289,9 +293,20 @@ int AzCam3::initHardware()
 
 	callCommand ("readout_abort\r\n");
 	callCommandNoRts2 ("reset\r\n");
-	initCameraChip (101, 101, 0, 0);
-	//Default binning should be in the config. 
+	initCameraChip (4096, 4096, 0, 0);
+
+	//Default binning should be in the config.
+	//adding the 0 index a 4x4
+	// of the selection make more sense
+	//binning[0] => 4x4
+	//binning[1] => 1x1
+	//binning[2] => 2x2 
+	// etc
+	addBinning2D(4, 4);
+	addBinning2D(1, 1);
+	addBinning2D(2, 2);
 	addBinning2D(3, 3);
+	addBinning2D(4, 4);
 
 	return initChips ();
 }
@@ -299,7 +314,8 @@ int AzCam3::initHardware()
 int AzCam3::callCommandNoRts2 (const char *cmd)
 {
 	int ret = commandConn->writeRead (cmd, strlen(cmd), rbuf, 200, '\r', 20, false);
-	return ret;;
+	logStream (MESSAGE_INFO) << "rbuf is " << rbuf << sendLog;
+	return ret;
 }
 
 int AzCam3::callCommand (const char *cmd)
@@ -367,17 +383,21 @@ int AzCam3::callExposure (const char *cmd, double p1, const char *p2)
 int AzCam3::setBinning(int binx, int biny)
 {
 	char buf[200];
+	
+	snprintf(buf, 200, "set_roi 1 4096 1 4096 %d %d\r\n", binx, biny );
+	callCommandNoRts2(buf);
 
-	snprintf(buf, 200, "binning %d %d\r\n", binx, biny );
-	return callCommand(buf);
+	return Camera::setBinning( binx, biny );
 }
 
 int AzCam3::setBinning()
 {
 	char buf[200];
+	
+	snprintf(buf, 200, "set_roi 1 4096 1 4096 %d %d\r\n", binningHorizontal(), binningVertical() );
+	callCommandNoRts2(buf);
 
-	snprintf(buf, 200, "binning %d %d\r\n", binningHorizontal(), binningVertical() );
-	return callCommand(buf);
+	return Camera::setBinning( binningHorizontal(), binningVertical() );
 }
 
 int AzCam3::callShiftExposure (  )
@@ -470,16 +490,16 @@ int AzCam3::setupDataConnection ()
 	addConnection (dataConn);
 
 	setFitsTransfer ();
-
-	int ret = setCamera ("remoteimageserverflag", 1);
-	if (ret)
-		return ret;
+	int ret;
+	//int ret = setCamera ("remoteimageserverflag", 1);
+	//if (ret)
+		//return ret;
 	
-	ret = setCamera ("remoteimageserverhost", hostname);
+	ret = setCamera ("remote_imageserver_host", hostname);
 	if (ret)
 		return ret;
 
-	ret = setCamera ("remoteimageserverport", dataConn->getPort ());
+	ret = setCamera ("remote_imageserver_port", dataConn->getPort ());
 	return ret;
 }
 
@@ -489,10 +509,10 @@ int AzCam3::startExposure()
 	if (ret)
 		return ret;
 
-	//ret = callCommand ("exposure.set_roi", getUsedX (), getUsedX () + getUsedWidth () - 1, getUsedY (), getUsedY () + getUsedHeight () - 1, binningHorizontal (), binningVertical ());
-	ret = setBinning( binningHorizontal(), binningVertical() );
-	if (ret)
-		return ret;
+	ret = setBinning( );
+	
+
+	
 
 	if( parShiftFocus->getValueBool() )
 	{
@@ -503,7 +523,6 @@ int AzCam3::startExposure()
 	{
 		ret = callCommand ( "expose", getExposure(), imageType->getSelName() , objectName->getValue() );
 	}
-
 	if ( ret )
 		return ret;
 	sleep ( 5 );
