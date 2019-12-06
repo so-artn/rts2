@@ -1,10 +1,4 @@
-/*
- * TCS NG telescope driver.
- * Copyright (C) 2016 Scott Swindel
- * Copyright (C) 2016 Petr Kubanek <petr@kubanek.net>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
+
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
@@ -113,7 +107,11 @@ class TCSNG:public Telescope
 		rts2core::ValueDouble *tle_rho_sin_phi;
 		rts2core::ValueDouble *tle_rho_cos_phi;
 
+		rts2core::ValueDouble *biasra;
+		rts2core::ValueDouble *biasdec;
+		rts2core::ValueBool *biason;
 
+		
 
 		rts2core::ValueInteger *reqcount;
 };
@@ -160,7 +158,14 @@ TCSNG::TCSNG (int argc, char **argv):Telescope (argc,argv, true, true)
 	pecState->setValueBool (false);
 	
 	
-	/*RTS2 moveState is an rts2 data type that is alwasy 
+	createValue (biasra, "biasra", "RA Bias rate asec/sec ", false, RTS2_VALUE_WRITABLE);
+	biasra->setValueDouble (0.0);
+
+	createValue (biasdec, "biasdec", "Dec Bias rate asec/sec ", false, RTS2_VALUE_WRITABLE);
+	biasdec->setValueDouble (0.0);
+	
+
+	/*RTS2 moveState is an rts2 data type that is always 
 	set equal to the tcsng.moveState member 
 	this way moveState variable can be seen in rts2-mon*/
 	createValue (tcsngmoveState, "tcsng_move_state", "TCSNG move state", false);
@@ -251,17 +256,37 @@ int TCSNG::initHardware ()
 int TCSNG::info ()
 {
 	double nglst;
+	const char * xrastr;
+	const char * xdecstr;
+	double tmpflt;
+	size_t slen;
 	try
 	{
 		setTelRaDec (ngconn->getSexadecimalHours ("RA"), ngconn->getSexadecimalAngle ("DEC"));
 		nglst = ngconn->getSexadecimalTime ("ST");
 
 		systemEnable->setValueBool (ngconn->getInteger ("DISABLE") == 0);
+		
+		xrastr = ngconn->request("XRA");
+		xdecstr = ngconn->request("XDEC");
+		
+		
+		slen = sscanf (xrastr, "%*s %*s %*s %*s %*s %*f %f %*d %*d", &tmpflt );
+		if(slen == 1)
+		{
+			biasra->setValueDouble(tmpflt);
+		}
+
+		slen = sscanf (xdecstr, "%*s %*s %*s %*s %*s %*f %f %*d %*d", &tmpflt );
+		if(slen == 1)
+		{
+			biasdec->setValueDouble(tmpflt);
+		}
 
 		const char * domest = ngconn->request ("DOME");
 		double del,telaz,az;
 		int mod, in, home;
-		size_t slen = sscanf (domest, "%lf %d %d %lf %lf %d", &del, &mod, &in, &telaz, &az, &home);
+		slen = sscanf (domest, "%lf %d %d %lf %lf %d", &del, &mod, &in, &telaz, &az, &home);
 		if (slen == 6)
 		{
 			domeAuto->setValueBool (mod == 1);
@@ -395,6 +420,7 @@ int TCSNG::setTracking( int track, bool addTrackingTimer, bool send)
 
 int TCSNG::setValue (rts2core::Value *oldValue, rts2core::Value *newValue)
 {
+	char cmdstr[300];
 	if (oldValue == domeAuto)
 	{
 		ngconn->command (((rts2core::ValueBool *) newValue)->getValueBool () ? "DOME AUTO ON" : "DOME AUTO OFF");
@@ -411,6 +437,25 @@ int TCSNG::setValue (rts2core::Value *oldValue, rts2core::Value *newValue)
 		ngconn->command (((rts2core::ValueBool *) newValue)->getValueBool () ? "PEC ON" : "PEC OFF");
 		return 0;
 	}
+	
+	if (oldValue == biasra)
+	{
+		snprintf( cmdstr, 300, "BIASRA %f", newValue->getValueDouble () );
+		ngconn->command( cmdstr );
+	}	
+
+	if (oldValue == biasdec)
+	{
+		snprintf( cmdstr, 300, "BIASDEC %f", newValue->getValueDouble () );
+		ngconn->command( cmdstr );
+	}
+
+	if (oldValue == biason)
+	{
+		ngconn->command (((rts2core::ValueBool *) newValue)->getValueBool () ? "BIAS ON" : "BIAS OFF");
+		return 0;
+	}
+
 
 	return Telescope::setValue (oldValue, newValue);
 }

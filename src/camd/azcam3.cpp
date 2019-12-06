@@ -302,7 +302,7 @@ int AzCam3::initHardware()
 	//binning[1] => 1x1
 	//binning[2] => 2x2 
 	// etc
-	addBinning2D(4, 4);
+	addBinning2D(3, 3);
 	addBinning2D(1, 1);
 	addBinning2D(2, 2);
 	addBinning2D(3, 3);
