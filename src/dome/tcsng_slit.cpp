@@ -17,7 +17,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#include "cupola.h"
+#include "dome.h"
 #include "connection/tcsng.h"
 
 using namespace rts2dome;
@@ -29,7 +29,7 @@ namespace rts2dome
  *
  * @author Petr Kubanek <petr@kubanek.net>
  */
-class ngDome:public Cupola
+class ngDome:public Dome
 {
 	private:
 		//rts2core::ValueInteger * mcount;
@@ -38,6 +38,7 @@ class ngDome:public Cupola
 		rts2core::ValueBool *opened;
 		rts2core::ValueBool *closed;
 		rts2core::ValueString *domeStatus;
+		rts2core::ValueBool *toggle;
 		HostString *host;
 		const char *obsid;
 		const char *cfgFile;
@@ -88,30 +89,58 @@ class ngDome:public Cupola
 			return 0;
 		}
 
+		virtual int idle()
+		{
+			std::string resp;
+			try
+			{
+				resp = domeconn->request("STATE");
+				resp = strip(resp);
+				domeStatus->setValueString( resp );
+			}
+			catch(rts2core::ConnTimeoutError)
+			{
+				logStream(MESSAGE_ERROR) << "Timeout error Could not communicate with Upper Dome" << sendLog;
+				domeStatus->setValueString("Timeout ERROR");
+				resp = "Timeout ERROR";
+				throw;
+			}
+			catch(rts2core::Error)
+			{
 
+				logStream(MESSAGE_ERROR) << "Error Could not communicate with Upper Dome" << sendLog;
+				domeStatus->setValueString("ERROR");
+				resp = "ERROR";
+				throw;
+			}
+			if(resp == "CLOSED")
+			{
+				closed->setValueBool(true);
+				opened->setValueBool(false);
+			}
+			else if(resp == "OPENED")
+			{
+				closed->setValueBool(true);
+				opened->setValueBool(false);
+			}
+			else
+			{
+				closed->setValueBool(false);
+				opened->setValueBool(false);
+			}
+			sendValueAll(domeStatus);
+
+			return Dome::idle();
+		}
 		virtual int setValue(rts2core::Value *oldValue, rts2core::Value *newValue)
 		{
-			//logStream(MESSAGE_ERROR) << "changing value!!!!!" << sendLog;
-			if(oldValue == domeStatus)
+			if(oldValue == toggle)
 			{
-				domeStatus->setValueString("DOME FUCKING STATUS");
-				sendValueAll(domeStatus);
+				
 			}
-			return Cupola::setValue(oldValue, newValue);
+			return Dome::setValue(oldValue, newValue);
 		}
-		virtual int moveStart ()
-		{
-			//mcount->setValueInteger (0);
-			//sendValueAll (mcount);
-			return Cupola::moveStart ();
-		}
-		virtual int moveEnd ()
-		{
-			//struct ln_hrz_posn hrz;
-			//getTargetAltAz (&hrz);
-			//setCurrentAz (hrz.az);
-			return Cupola::moveEnd ();
-		}
+
 		virtual long isMoving ()
 		{
 			//mcount->inc ();
@@ -122,13 +151,8 @@ class ngDome:public Cupola
 
 		virtual int startOpen ()
 		{
-			//if ((getState () & DOME_DOME_MASK) == DOME_OPENING)
-				//return 0;
 			domeconn->command("OPEN");
 
-			//domeconn->command("OPEN");
-			//mcount->setValueInteger (0);
-			//sendValueAll (mcount);
 			
 			return 0;
 		}
@@ -140,7 +164,6 @@ class ngDome:public Cupola
 			{
 				resp = domeconn->request("STATE");
 				resp = strip(resp);
-				logStream(MESSAGE_ERROR) << "resp is " << resp << sendLog;
 				domeStatus->setValueString( resp );
 			}
 			catch(rts2core::ConnTimeoutError)
@@ -179,31 +202,34 @@ class ngDome:public Cupola
 
 		virtual long isClosed ()
 		{
-			std::string resp;
+			std::string resp;	
 			try
 			{
 				resp = domeconn->request("STATE");
 				resp = strip(resp);
+				domeStatus->setValueString( resp );
 			}
 			catch(rts2core::ConnTimeoutError)
 			{
-				 logStream(MESSAGE_ERROR) << "Timeout error Could not communicate with Upper Dome" << sendLog;
-				 return -1;
+				logStream(MESSAGE_ERROR) << "Timeout error Could not communicate with Upper Dome" << sendLog;
+				domeStatus->setValueString("Timeout ERROR");
+				resp = "Timeout ERROR";
+				throw;
+			}
+			catch(rts2core::Error)
+			{
+
+				logStream(MESSAGE_ERROR) << "Error Could not communicate with Upper Dome" << sendLog;
+				domeStatus->setValueString("ERROR");
+				resp = "ERROR";
+				throw;
 			}
 
-
-			if (resp == "CLOSED")
+			sendValueAll(domeStatus);
+			if ( domeStatus->getValueString() == "CLOSED")
 				return -2;
 
-			else if(resp == "OPENED")
-				return USEC_SEC;
-			else if(resp == "MOVING")
-				return USEC_SEC;
-			else
-			{
-				logStream(MESSAGE_ERROR) << "Did not understand upper dome resp: "<< resp << sendLog;
-				return -1;
-			}
+			return USEC_SEC;
 
 		}
 
@@ -213,7 +239,7 @@ class ngDome:public Cupola
 		}
 
 	public:
-		ngDome (int argc, char **argv):Cupola (argc, argv)
+		ngDome (int argc, char **argv):Dome (argc, argv)
 		{
 			//createValue (mcount, "mcount", "moving count", false);
 			//createValue (moveCountTop, "moveCountTop", "move count top", false, RTS2_VALUE_WRITABLE);
@@ -226,14 +252,14 @@ class ngDome:public Cupola
 			addOption ('o', NULL, 1, "TCS NG observatory id");
 			createValue (domeStatus, "slit_status", "State of the dome slit", true, RTS2_VALUE_WRITABLE);
 			createValue (opened, "isOpen", "Is the slit open?", false);
-			createValue (closed, "isClosed", "Is the slit closed?", false);
+			createValue (closed, "isClosed", "Is the slit closed?", true);
+			createValue (toggle, "toggle", "Toggle the dome open or closed", true, RTS2_VALUE_WRITABLE);
 
 			
 		}
 		virtual int initValues ()
 		{
-			setCurrentAz (0);
-			return Cupola::initValues();
+			return Dome::initValues();
 
 		}
 
@@ -244,12 +270,18 @@ class ngDome:public Cupola
 
 		std::string strip(std::string str)
 		{
+			while( str[0] == ' ')
+			{
+				str.erase(0, 1);
+			}
+
 			while( str[str.length()-1] == '\r' ||  str[str.length()-1] == '\n')
 			{
 				str=str.erase(str.length()-1, 1);
 			}
 			return str;
 		}
+		
 
 };
 
