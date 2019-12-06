@@ -1,4 +1,12 @@
-
+/*
+ * TCS NG telescope driver.
+ * Copyright (C) 2016 Scott Swindell
+ * Copyright (C) 2016 Petr Kubanek <petr@kubanek.net>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
@@ -19,6 +27,7 @@
 
 #include <cmath>
 
+
 using namespace rts2teld;
 
 /*moveState: 0=>Not moving no move called, 
@@ -26,6 +35,7 @@ using namespace rts2teld;
 #define TCSNG_NO_MOVE_CALLED   0
 #define TCSNG_MOVE_CALLED      1
 #define TCSNG_MOVING           2
+#define ASEC_PER_SEC2DEG_PER_DAY ((24*60*60)/(3600))
 
 /**
  * TCS telescope class to interact with TCSng control systems.
@@ -110,7 +120,8 @@ class TCSNG:public Telescope
 		rts2core::ValueDouble *biasra;
 		rts2core::ValueDouble *biasdec;
 		rts2core::ValueBool *biason;
-
+		
+		rts2core::ValueDouble *mjdVal;
 		
 
 		rts2core::ValueInteger *reqcount;
@@ -157,13 +168,17 @@ TCSNG::TCSNG (int argc, char **argv):Telescope (argc,argv, true, true)
 	createValue (pecState, "pec_state", "PEC", false, RTS2_VALUE_WRITABLE);
 	pecState->setValueBool (false);
 	
-	
-	createValue (biasra, "biasra", "RA Bias rate asec/sec ", false, RTS2_VALUE_WRITABLE);
+	createValue (biasra, "biasra", "RA Bias rate deg/day ", false, RTS2_VALUE_WRITABLE);
 	biasra->setValueDouble (0.0);
 
-	createValue (biasdec, "biasdec", "Dec Bias rate asec/sec ", false, RTS2_VALUE_WRITABLE);
+	createValue (biasdec, "biasdec", "Dec Bias rate deg/day ", false, RTS2_VALUE_WRITABLE);
 	biasdec->setValueDouble (0.0);
 	
+
+	createValue (biason, "bias", "Bias on/off", false, RTS2_VALUE_WRITABLE);
+	biason->setValueBool(false);
+	
+	createValue (mjdVal, "MJD", "Modified Julian Date", true);
 
 	/*RTS2 moveState is an rts2 data type that is always 
 	set equal to the tcsng.moveState member 
@@ -270,17 +285,21 @@ int TCSNG::info ()
 		xrastr = ngconn->request("XRA");
 		xdecstr = ngconn->request("XDEC");
 		
-		
-		slen = sscanf (xrastr, "%*s %*s %*s %*s %*s %*f %f %*d %*d", &tmpflt );
+		mjdVal->setValueDouble ( jdVal->getValueDouble () - 2400000.5 );
+		sendValueAll(mjdVal);
+
+		slen = sscanf (xrastr, "%*s %*s %*s %*s %*s %*f %lf %*d %*d", &tmpflt );
 		if(slen == 1)
 		{
-			biasra->setValueDouble(tmpflt);
+			biasra->setValueDouble( tmpflt*ASEC_PER_SEC2DEG_PER_DAY  );
+			sendValueAll(biasra);
 		}
 
-		slen = sscanf (xdecstr, "%*s %*s %*s %*s %*s %*f %f %*d %*d", &tmpflt );
+		slen = sscanf (xdecstr, "%*s %*s %*s %*s %*s %*f %lf %*d %*d", &tmpflt );
 		if(slen == 1)
 		{
-			biasdec->setValueDouble(tmpflt);
+			biasdec->setValueDouble( tmpflt*ASEC_PER_SEC2DEG_PER_DAY  );
+			sendValueAll(biasdec);
 		}
 
 		const char * domest = ngconn->request ("DOME");
@@ -440,13 +459,13 @@ int TCSNG::setValue (rts2core::Value *oldValue, rts2core::Value *newValue)
 	
 	if (oldValue == biasra)
 	{
-		snprintf( cmdstr, 300, "BIASRA %f", newValue->getValueDouble () );
+		snprintf( cmdstr, 300, "BIASRA %f", newValue->getValueDouble ()/ASEC_PER_SEC2DEG_PER_DAY );
 		ngconn->command( cmdstr );
 	}	
 
 	if (oldValue == biasdec)
 	{
-		snprintf( cmdstr, 300, "BIASDEC %f", newValue->getValueDouble () );
+		snprintf( cmdstr, 300, "BIASDEC %f", newValue->getValueDouble ()/ASEC_PER_SEC2DEG_PER_DAY );
 		ngconn->command( cmdstr );
 	}
 
