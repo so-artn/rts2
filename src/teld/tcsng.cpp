@@ -271,8 +271,8 @@ int TCSNG::initHardware ()
 int TCSNG::info ()
 {
 	double nglst;
-	const char * xrastr;
-	const char * xdecstr;
+	char xrastr[100];
+	char xdecstr[100];
 	double tmpflt;
 	size_t slen;
 	try
@@ -282,8 +282,7 @@ int TCSNG::info ()
 
 		systemEnable->setValueBool (ngconn->getInteger ("DISABLE") == 0);
 		
-		xrastr = ngconn->request("XRA");
-		xdecstr = ngconn->request("XDEC");
+		strncpy( xrastr, ngconn->request("XRA"), 100 );
 		
 		mjdVal->setValueDouble ( jdVal->getValueDouble () - 2400000.5 );
 		sendValueAll(mjdVal);
@@ -291,15 +290,27 @@ int TCSNG::info ()
 		slen = sscanf (xrastr, "%*s %*s %*s %*s %*s %*f %lf %*d %*d", &tmpflt );
 		if(slen == 1)
 		{
+			logStream(MESSAGE_INFO) << "Setting  ra bias rate!" << tmpflt << sendLog;
 			biasra->setValueDouble( tmpflt*ASEC_PER_SEC2DEG_PER_DAY  );
 			sendValueAll(biasra);
 		}
+		else
+		{
+			logStream(MESSAGE_WARNING) << "Could not set ra bias rate!" << xrastr << sendLog;
+		}
 
+
+		strncpy( xdecstr, ngconn->request("XDEC"), 100 );
 		slen = sscanf (xdecstr, "%*s %*s %*s %*s %*s %*f %lf %*d %*d", &tmpflt );
 		if(slen == 1)
 		{
+			logStream(MESSAGE_INFO) << "Setting  dec bias rate!" << tmpflt << sendLog;
 			biasdec->setValueDouble( tmpflt*ASEC_PER_SEC2DEG_PER_DAY  );
 			sendValueAll(biasdec);
+		}
+		else
+		{
+			logStream(MESSAGE_WARNING) << "Could not set dec bias rate!" << xdecstr << sendLog;
 		}
 
 		const char * domest = ngconn->request ("DOME");

@@ -62,6 +62,10 @@ class Bigelow:public SensorWeather
 		rts2core::ValueInteger *iRain;
 		rts2core::ValueInteger *daylight;
 		rts2core::ValueInteger *close;
+
+
+		rts2core::ValueBool *setbad;
+
 		CURL *curl;
 		char curl_error[CURL_ERROR_SIZE];
 		std::string curl_result;
@@ -90,6 +94,8 @@ Bigelow::Bigelow (int argc, char **argv):SensorWeather(argc, argv)
 	createValue (iRain, "I_RAIN", "rain satisfied", false);
 	createValue (daylight, "DAYLIGHT", "daylight time", false);
 	createValue (close, "CLOSE", "CSS closed", false);
+
+	createValue(setbad, "SETBAD", "Manually set weather to bad", false, RTS2_VALUE_WRITABLE);
 }
 
 Bigelow::~Bigelow ()
@@ -102,6 +108,7 @@ static size_t write_callback (void *contents, size_t size, size_t nmemb, void *u
 	(static_cast<std::string*>(userp))->append((char*)contents, size * nmemb);
 	return size * nmemb;
 }
+
 
 int Bigelow::initHardware ()
 {
@@ -119,6 +126,25 @@ int Bigelow::initHardware ()
 
 bool Bigelow::isGoodWeather ()
 {
+	logStream(MESSAGE_INFO) << "isGoodWeather" << sendLog;
+	float _humidity = humidity->getValueFloat();
+	float _windSpeed = windSpeed->getValueFloat();
+	
+	if(setbad->getValueBool())
+	{
+		//return false;
+	}
+	/*
+	if( _humidity > 80.0 )
+		return false;
+	else if(_windSpeed > 25.0)
+		return false;
+	else if( rain->getValueBool() )
+		return false;
+	else if( cloud->getValueInteger() != 1 ) 
+		return false;
+	*/
+
 	return SensorWeather::isGoodWeather();
 }
 
@@ -126,6 +152,8 @@ int Bigelow::info ()
 {
 	curl_result = "";
 	CURLcode res = curl_easy_perform(curl);
+	
+	setWeatherTimeout(10.0, "SET timeout");
 	if (res != CURLE_OK)
 	{
 		logStream(MESSAGE_ERROR) << "while retrieving " << BIGELOW_URL << ": " << curl_error << sendLog;

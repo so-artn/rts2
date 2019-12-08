@@ -132,6 +132,7 @@ class ngDome:public Dome
 
 			return Dome::idle();
 		}
+
 		virtual int setValue(rts2core::Value *oldValue, rts2core::Value *newValue)
 		{
 			if(oldValue == toggle)
@@ -151,6 +152,14 @@ class ngDome:public Dome
 
 		virtual int startOpen ()
 		{
+			rts2core::Connection *telConn = getOpenConnection (DEVICE_TYPE_MOUNT);
+			if(!(telConn->getState() & TEL_PARKED))
+			{
+				logStream(MESSAGE_ERROR) << "Tel must be parked (stowed) to open " << getState() << " " << (TEL_PARKED) <<sendLog;
+				
+				return -1;
+			}
+			blockTelMove();
 			domeconn->command("OPEN");
 
 			
@@ -160,6 +169,7 @@ class ngDome:public Dome
 		virtual long isOpened ()
 		{
 			std::string resp;
+			
 			try
 			{
 				resp = domeconn->request("STATE");
@@ -190,6 +200,7 @@ class ngDome:public Dome
 
 		virtual int endOpen ()
 		{
+			clearTelMove();
 			return 0;
 		}
 
@@ -227,8 +238,11 @@ class ngDome:public Dome
 
 			sendValueAll(domeStatus);
 			if ( domeStatus->getValueString() == "CLOSED")
+			{
 				return -2;
+			}
 
+			logStream(MESSAGE_INFO) << "not closed?" << sendLog;
 			return USEC_SEC;
 
 		}
@@ -236,6 +250,10 @@ class ngDome:public Dome
 		virtual int endClose ()
 		{
 			return 0;
+		}
+		virtual int info()
+		{
+			return Dome::info();
 		}
 
 	public:
