@@ -1,3 +1,6 @@
+# SO-ARTN RTS2 Branch
+Official so-artn branch of rts2. Looking at the rts2 installed and running on bigartn, it was the branch "ngdome". I have created a new branch, this one, from ngdome. This will be our master branch from now on. 
+
 RTS2 - Remote Telescope System, 2nd Version
 ===========================================
 
