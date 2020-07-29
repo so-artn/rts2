@@ -1,6 +1,46 @@
 # SO-ARTN RTS2 Branch
 Official so-artn branch of rts2. Looking at the rts2 installed and running on bigartn, it was the branch "ngdome". I have created a new branch, this one, from ngdome. This will be our master branch from now on. 
 
+## git remote show origin
+```bash
+* remote origin
+  Fetch URL: https://github.com/RTS2/rts2
+  Push  URL: https://github.com/RTS2/rts2
+  HEAD branch: master
+  Remote branches:
+    kuiper61                   tracked
+    lowell_updates             new (next fetch will store in remotes/origin)
+    master                     tracked
+    pkubanek-newconn           tracked
+    pkubanek-newmodel          tracked
+    pkubanek-python3           tracked
+    refs/remotes/origin/lowell stale (use 'git remote prune' to remove)
+    replaced_select_with_poll  tracked
+    svn/ASUAV                  tracked
+    svn/REL_0_5_0_exp          tracked
+    svn/REL_0_7_3              tracked
+    svn/REL_0_7_5              tracked
+    svn/REL_0_8_0              tracked
+    svn/REL_0_8_1              tracked
+    svn/REL_0_8_1@7710         tracked
+    svn/REL_0_9_0              tracked
+    svn/REL_0_9_1              tracked
+    svn/REL_0_9_2              tracked
+    svn/REL_0_9_3              tracked
+    svn/REL_0_9_4              tracked
+    svn/cipek                  tracked
+  Local branch configured for 'git pull':
+    master merges with remote master
+  Local ref configured for 'git push':
+    master pushes to master (local out of date)
+mtnops@bigartn:/home/scott/git-clones/rts2$ git branch
+  binning
+  css_fits
+  master
+* ngdome
+  scott
+
+```
 RTS2 - Remote Telescope System, 2nd Version
 ===========================================
 
